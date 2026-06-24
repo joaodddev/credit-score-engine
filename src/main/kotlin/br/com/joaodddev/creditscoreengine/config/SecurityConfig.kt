@@ -1,6 +1,5 @@
 package br.com.joaodddev.creditscoreengine.config
 
-import br.com.joaodddev.creditscoreengine.infrastructure.UserRepository
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.security.authentication.AuthenticationManager
@@ -10,7 +9,6 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.core.userdetails.UserDetailsService
-import org.springframework.security.core.userdetails.UsernameNotFoundException
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.web.SecurityFilterChain
@@ -18,22 +16,9 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 class SecurityConfig(
-    private val userRepository: UserRepository,
+    private val userDetailsService: UserDetailsService,
     private val jwtAuthenticationFilter: JwtAuthenticationFilter
 ) {
-
-    @Bean
-    fun userDetailsService(): UserDetailsService = UserDetailsService { email ->
-        userRepository.findByEmail(email)
-            ?.let { user ->
-                org.springframework.security.core.userdetails.User
-                    .withUsername(user.email)
-                    .password(user.password)
-                    .roles(user.role.name)
-                    .build()
-            }
-            ?: throw UsernameNotFoundException("User not found: $email")
-    }
 
     @Bean
     fun passwordEncoder(): PasswordEncoder = BCryptPasswordEncoder()
@@ -41,7 +26,7 @@ class SecurityConfig(
     @Bean
     fun authenticationProvider(): AuthenticationProvider =
         DaoAuthenticationProvider().also {
-            it.setUserDetailsService(userDetailsService())
+            it.setUserDetailsService(userDetailsService)
             it.setPasswordEncoder(passwordEncoder())
         }
 
