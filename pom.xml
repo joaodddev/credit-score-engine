@@ -11,10 +11,10 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.creditscoreengine</groupId>
+    <groupId>br.com.joaodddev</groupId>
     <artifactId>credit-score-engine</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>credit-score-engine</name>
+    <name>br.com.joaodddev.creditscoreengine</name>
     <description>Credit Score Engine API - Fintech Portfolio Project</description>
 
     <properties>
