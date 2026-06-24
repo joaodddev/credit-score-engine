@@ -1,18 +1,72 @@
 package br.com.joaodddev.creditscoreengine.config
 
+import br.com.joaodddev.creditscoreengine.infrastructure.UserRepository
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.security.authentication.AuthenticationManager
+import org.springframework.security.authentication.AuthenticationProvider
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
+import org.springframework.security.config.http.SessionCreationPolicy
+import org.springframework.security.core.userdetails.UserDetailsService
+import org.springframework.security.core.userdetails.UsernameNotFoundException
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
+import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.web.SecurityFilterChain
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 
 @Configuration
-class SecurityConfig {
+class SecurityConfig(
+    private val userRepository: UserRepository,
+    private val jwtAuthenticationFilter: JwtAuthenticationFilter
+) {
+
+    @Bean
+    fun userDetailsService(): UserDetailsService = UserDetailsService { email ->
+        userRepository.findByEmail(email)
+            ?.let { user ->
+                org.springframework.security.core.userdetails.User
+                    .withUsername(user.email)
+                    .password(user.password)
+                    .roles(user.role.name)
+                    .build()
+            }
+            ?: throw UsernameNotFoundException("User not found: $email")
+    }
+
+    @Bean
+    fun passwordEncoder(): PasswordEncoder = BCryptPasswordEncoder()
+
+    @Bean
+    fun authenticationProvider(): AuthenticationProvider =
+        DaoAuthenticationProvider().also {
+            it.setUserDetailsService(userDetailsService())
+            it.setPasswordEncoder(passwordEncoder())
+        }
+
+    @Bean
+    fun authenticationManager(config: AuthenticationConfiguration): AuthenticationManager =
+        config.authenticationManager
 
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
         http
             .csrf { it.disable() }
-            .authorizeHttpRequests { it.anyRequest().permitAll() }
+            .authorizeHttpRequests {
+                it.requestMatchers(
+                    "/api/v1/auth/**",
+                    "/h2-console/**",
+                    "/swagger-ui/**",
+                    "/v3/api-docs/**"
+                ).permitAll()
+                it.anyRequest().authenticated()
+            }
+            .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
+            .authenticationProvider(authenticationProvider())
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
+            .headers { it.frameOptions { fo -> fo.disable() } }
+
         return http.build()
     }
 }
